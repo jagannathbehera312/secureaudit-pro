@@ -10,7 +10,10 @@ from bson import ObjectId
 from rest_framework.test import APIClient
 from rest_framework import status
 
-from core.database import get_db, USERS, WEBSITES, SCAN_JOBS, VULNERABILITIES, MONITOR_TARGETS, THREAT_EVENTS
+from core.database import (
+    get_db, USERS, WEBSITES, SCAN_JOBS, VULNERABILITIES,
+    MONITOR_TARGETS, THREAT_EVENTS, ORGANIZATIONS
+)
 from core.authentication import hash_password, create_jwt_tokens
 
 
@@ -21,27 +24,27 @@ def api_client():
 
 @pytest.fixture
 def auth_user():
-    """Seeds a test security analyst user and returns (user_doc, access_token)."""
+    """Seeds an ephemeral test security analyst user and deletes it upon test completion."""
     db = get_db()
-    user_email = "test_analyst@secureaudit.pro"
-    user = db[USERS].find_one({"email": user_email})
-    if not user:
-        user_doc = {
-            "email": user_email,
-            "password_hash": hash_password("AnalystTestPass2026!"),
-            "first_name": "Test",
-            "last_name": "Analyst",
-            "role": "security_analyst",
-            "organization_id": "test_org_id",
-            "is_active": True,
-            "totp_enabled": False
-        }
-        res = db[USERS].insert_one(user_doc)
-        user_doc["_id"] = res.inserted_id
-        user = user_doc
+    user_email = f"test_analyst_{uuid.uuid4().hex[:8]}@secureaudit.pro"
+    user_doc = {
+        "email": user_email,
+        "password_hash": hash_password("AnalystTestPass2026!"),
+        "first_name": "Test",
+        "last_name": "Analyst",
+        "role": "security_analyst",
+        "organization_id": "test_org_id",
+        "is_active": True,
+        "totp_enabled": False
+    }
+    res = db[USERS].insert_one(user_doc)
+    user_doc["_id"] = res.inserted_id
 
-    tokens = create_jwt_tokens(user)
-    return user, tokens["access"]
+    tokens = create_jwt_tokens(user_doc)
+    try:
+        yield user_doc, tokens["access"]
+    finally:
+        db[USERS].delete_one({"_id": res.inserted_id})
 
 
 # =========================================================================
@@ -60,42 +63,52 @@ def test_health_check_api(api_client):
 # =========================================================================
 
 def test_auth_register_and_login_flow(api_client):
+    db = get_db()
     unique_email = f"test_{uuid.uuid4().hex[:8]}@secureaudit.pro"
+    org_name = f"CI/CD Corp {uuid.uuid4().hex[:6]}"
     reg_payload = {
         "email": unique_email,
         "password": "PipelineSecurePass123!",
         "first_name": "Pipeline",
         "last_name": "Tester",
-        "organization_name": "CI/CD Corp"
+        "organization_name": org_name
     }
 
-    # 1. Register
-    reg_res = api_client.post("/api/auth/register/", data=reg_payload, format="json")
-    assert reg_res.status_code == status.HTTP_201_CREATED
-    assert "tokens" in reg_res.data
-    assert reg_res.data["user"]["email"] == unique_email
+    try:
+        # 1. Register
+        reg_res = api_client.post("/api/auth/register/", data=reg_payload, format="json")
+        assert reg_res.status_code == status.HTTP_201_CREATED
+        assert "tokens" in reg_res.data
+        assert reg_res.data["user"]["email"] == unique_email
 
-    # 2. Login with valid credentials
-    login_res = api_client.post("/api/auth/login/", data={
-        "email": unique_email,
-        "password": "PipelineSecurePass123!"
-    }, format="json")
-    assert login_res.status_code == status.HTTP_200_OK
-    token = login_res.data["tokens"]["access"]
-    assert token is not None
+        # 2. Login with valid credentials
+        login_res = api_client.post("/api/auth/login/", data={
+            "email": unique_email,
+            "password": "PipelineSecurePass123!"
+        }, format="json")
+        assert login_res.status_code == status.HTTP_200_OK
+        token = login_res.data["tokens"]["access"]
+        assert token is not None
 
-    # 3. Login with invalid password
-    bad_login = api_client.post("/api/auth/login/", data={
-        "email": unique_email,
-        "password": "WrongPassword!"
-    }, format="json")
-    assert bad_login.status_code == status.HTTP_401_UNAUTHORIZED
+        # 3. Login with invalid password
+        bad_login = api_client.post("/api/auth/login/", data={
+            "email": unique_email,
+            "password": "WrongPassword!"
+        }, format="json")
+        assert bad_login.status_code == status.HTTP_401_UNAUTHORIZED
 
-    # 4. Fetch authenticated user profile
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
-    profile_res = api_client.get("/api/auth/profile/")
-    assert profile_res.status_code == status.HTTP_200_OK
-    assert profile_res.data["email"] == unique_email
+        # 4. Fetch authenticated user profile
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        profile_res = api_client.get("/api/auth/profile/")
+        assert profile_res.status_code == status.HTTP_200_OK
+        assert profile_res.data["email"] == unique_email
+    finally:
+        # Automatically clean up / delete test email ID and test organization from database
+        db[USERS].delete_one({"email": unique_email})
+        db[ORGANIZATIONS].delete_one({"name": org_name})
+
+    # Assert test email is verified deleted from database
+    assert db[USERS].find_one({"email": unique_email}) is None
 
 
 # =========================================================================
@@ -288,9 +301,10 @@ def test_admin_metrics_and_audit_logs_api(api_client, auth_user):
 
     # 2. Super Admin token tests
     admin_user = db[USERS].find_one({"role": "super_admin"})
+    created_admin_id = None
     if not admin_user:
         admin_doc = {
-            "email": "pipeline_admin@secureaudit.pro",
+            "email": f"pipeline_admin_{uuid.uuid4().hex[:8]}@secureaudit.pro",
             "password_hash": hash_password("AdminPass2026!"),
             "role": "super_admin",
             "is_active": True
@@ -298,12 +312,17 @@ def test_admin_metrics_and_audit_logs_api(api_client, auth_user):
         res = db[USERS].insert_one(admin_doc)
         admin_doc["_id"] = res.inserted_id
         admin_user = admin_doc
+        created_admin_id = res.inserted_id
 
-    admin_tokens = create_jwt_tokens(admin_user)
-    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {admin_tokens['access']}")
+    try:
+        admin_tokens = create_jwt_tokens(admin_user)
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {admin_tokens['access']}")
 
-    health_res = api_client.get("/api/admin/system-health/")
-    assert health_res.status_code == status.HTTP_200_OK
+        health_res = api_client.get("/api/admin/system-health/")
+        assert health_res.status_code == status.HTTP_200_OK
 
-    audit_res = api_client.get("/api/admin/audit-logs/")
-    assert audit_res.status_code == status.HTTP_200_OK
+        audit_res = api_client.get("/api/admin/audit-logs/")
+        assert audit_res.status_code == status.HTTP_200_OK
+    finally:
+        if created_admin_id:
+            db[USERS].delete_one({"_id": created_admin_id})
