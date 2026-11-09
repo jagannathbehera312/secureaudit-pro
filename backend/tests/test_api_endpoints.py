@@ -4,6 +4,7 @@ Validates all REST API endpoints for authentication, target assets, security sca
 vulnerability catalog, reports, attack monitoring radar, and administration.
 """
 
+import uuid
 import pytest
 from bson import ObjectId
 from rest_framework.test import APIClient
@@ -59,7 +60,7 @@ def test_health_check_api(api_client):
 # =========================================================================
 
 def test_auth_register_and_login_flow(api_client):
-    unique_email = "newuser_pipeline@secureaudit.pro"
+    unique_email = f"test_{uuid.uuid4().hex[:8]}@secureaudit.pro"
     reg_payload = {
         "email": unique_email,
         "password": "PipelineSecurePass123!",
@@ -200,7 +201,8 @@ def test_vulnerabilities_api(api_client, auth_user):
         "status": "open",
         "organization_id": str(user.get("organization_id", "test_org_id")),
         "comments": [],
-        "fix_command": "Use DOMPurify.sanitize(input)"
+        "fix_command": "Use DOMPurify.sanitize(input)",
+        "dedup_key": f"test_dedup_{uuid.uuid4().hex}"
     }
     res = db[VULNERABILITIES].insert_one(vuln_doc)
     vuln_id = str(res.inserted_id)
@@ -248,7 +250,10 @@ def test_monitoring_attack_radar_api(api_client, auth_user):
     assert "targets" in list_res.data
     assert "summary" in list_res.data
 
-    target_id = list_res.data["targets"][0]["id"]
+    if create_res.status_code == status.HTTP_201_CREATED and "id" in create_res.data:
+        target_id = create_res.data["id"]
+    else:
+        target_id = list_res.data["targets"][0]["id"]
 
     # 3. Trigger immediate on-demand diagnostic
     check_res = api_client.post(f"/api/monitoring/{target_id}/check/")

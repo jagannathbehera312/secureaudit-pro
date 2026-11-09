@@ -19,7 +19,11 @@ logger = logging.getLogger(__name__)
 def serialize_doc(doc: dict) -> dict:
     if not doc:
         return {}
-    doc["id"] = str(doc.pop("_id"))
+    doc = dict(doc)
+    if "_id" in doc:
+        doc["id"] = str(doc.pop("_id"))
+    elif "id" not in doc:
+        doc["id"] = str(ObjectId())
     for k, v in list(doc.items()):
         if isinstance(v, datetime):
             doc[k] = v.isoformat()

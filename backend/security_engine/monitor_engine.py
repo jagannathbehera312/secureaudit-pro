@@ -324,6 +324,8 @@ def run_perimeter_threat_audit(monitor_id: str, host: str, canonical_url: str, b
                 })
             except Exception:
                 pass
+        else:
+            th["_id"] = existing.get("_id")
 
     # -------------------------------------------------------------
     # 6. Calculate Threat Level & Posture Score
