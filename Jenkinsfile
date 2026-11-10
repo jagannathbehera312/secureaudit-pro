@@ -1,16 +1,8 @@
-
 pipeline {
     agent any
 
     options {
         disableConcurrentBuilds()
-        timestamps()
-    }
-
-    environment {
-        COMPOSE_PROJECT_NAME = 'secureaudit'
-        ENV_FILE = '/opt/secureaudit/.env'
-        COMPOSE_FILE = 'docker-compose.yml'
         timestamps()
     }
 
@@ -28,12 +20,10 @@ pipeline {
         stage('1. Pull Code from GitHub') {
             steps {
                 echo '[+] Pulling latest source code...'
-                echo '[+] Pulling latest source code...'
                 checkout scm
             }
         }
 
-        stage('2. Backend Unit & API Tests') {
         stage('2. Backend Unit & API Tests') {
             steps {
                 echo '[+] Installing dependencies and running tests...'
@@ -44,7 +34,6 @@ pipeline {
                     pip install -r requirements.txt
                     mkdir -p backend/test-reports
                     
-                    # Load environment variables from /opt/secureaudit/.env for pytest-django
                     if [ -f /opt/secureaudit/.env ]; then
                         export $(grep -v '^#' /opt/secureaudit/.env | xargs)
                     fi
@@ -61,7 +50,6 @@ pipeline {
             }
         }
 
-        stage('3. Validate Docker Compose') {
         stage('3. Validate Docker Compose') {
             steps {
                 echo '[+] Validating Docker Compose configuration...'
@@ -108,7 +96,6 @@ pipeline {
         }
 
         stage('6. Backend Health Check') {
-        stage('6. Backend Health Check') {
             steps {
                 echo '[+] Checking Django backend...'
 
@@ -142,12 +129,9 @@ pipeline {
     }
 
     post {
-
         always {
             echo '[+] Pipeline execution completed.'
-            echo '[+] Pipeline execution completed.'
         }
-
 
         success {
             echo '''
@@ -155,13 +139,7 @@ pipeline {
              SECUREAUDIT CI/CD PIPELINE SUCCESSFUL
             ==========================================
             '''
-            echo '''
-            ==========================================
-             SECUREAUDIT CI/CD PIPELINE SUCCESSFUL
-            ==========================================
-            '''
         }
-
 
         failure {
             echo '''
