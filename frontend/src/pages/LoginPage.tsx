@@ -1,15 +1,15 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldAlert, Lock, Mail, KeyRound, ArrowRight, AlertCircle, CheckCircle2, Sparkles } from "lucide-react";
+import { ShieldAlert, Lock, Mail, KeyRound, ArrowRight, AlertCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [email, setEmail] = useState("analyst@secureaudit.pro");
-  const [password, setPassword] = useState("Analyst@SecureAudit2026!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
   const [showTotpPrompt, setShowTotpPrompt] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,12 +32,6 @@ export const LoginPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemo = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
   };
 
   return (
@@ -162,59 +156,6 @@ export const LoginPage: React.FC = () => {
               )}
             </motion.button>
           </form>
-
-          {/* Quick Demo Accounts Selection */}
-          <div className="mt-6 pt-5 border-t border-[#1E293B]">
-            <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-2.5 flex items-center justify-between">
-              <span>Quick Demo Sign-In</span>
-              <span className="text-cyan-400 font-mono text-[10px]">1-Click Fill</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <motion.button
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(6, 182, 212, 0.1)" }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={() => handleQuickDemo("analyst@secureaudit.pro", "Analyst@SecureAudit2026!")}
-                className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/30 text-left transition-colors"
-              >
-                <div className="text-xs font-bold text-white">Security Analyst</div>
-                <div className="text-[10px] text-slate-400 truncate">analyst@secureaudit.pro</div>
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(6, 182, 212, 0.1)" }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={() => handleQuickDemo("admin@secureaudit.pro", "Admin@SecureAudit2026!")}
-                className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/30 text-left transition-colors"
-              >
-                <div className="text-xs font-bold text-white">Super Admin</div>
-                <div className="text-[10px] text-slate-400 truncate">admin@secureaudit.pro</div>
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(6, 182, 212, 0.1)" }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={() => handleQuickDemo("orgadmin@secureaudit.pro", "OrgAdmin@SecureAudit2026!")}
-                className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/30 text-left transition-colors"
-              >
-                <div className="text-xs font-bold text-white">Org Admin</div>
-                <div className="text-[10px] text-slate-400 truncate">orgadmin@secureaudit.pro</div>
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.02, backgroundColor: "rgba(6, 182, 212, 0.1)" }}
-                whileTap={{ scale: 0.98 }}
-                type="button"
-                onClick={() => handleQuickDemo("auditor@secureaudit.pro", "Auditor@SecureAudit2026!")}
-                className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-cyan-500/30 text-left transition-colors"
-              >
-                <div className="text-xs font-bold text-white">Auditor</div>
-                <div className="text-[10px] text-slate-400 truncate">auditor@secureaudit.pro</div>
-              </motion.button>
-            </div>
-          </div>
         </div>
       </motion.div>
     </div>
