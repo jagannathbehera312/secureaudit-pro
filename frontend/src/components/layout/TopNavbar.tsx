@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Search, ShieldCheck, Plus, Check, KeyRound } from "lucide-react";
+import { Bell, Search, ShieldCheck, Plus, Check, KeyRound, Menu } from "lucide-react";
 import { notificationsApi } from "../../services/api";
 import { ChangePasswordModal } from "../auth/ChangePasswordModal";
 
-export const TopNavbar: React.FC = () => {
+interface TopNavbarProps {
+  onOpenMobileNav?: () => void;
+}
+
+export const TopNavbar: React.FC<TopNavbarProps> = ({ onOpenMobileNav }) => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -38,34 +42,63 @@ export const TopNavbar: React.FC = () => {
   };
 
   return (
-    <header className="h-16 border-b border-[#1E293B]/80 bg-[#070A12]/80 backdrop-blur-xl px-6 flex items-center justify-between sticky top-0 z-40 select-none">
-      {/* Left: Status Pill */}
-      <div className="flex items-center gap-4">
+    <header className="h-16 border-b border-[#1E293B]/80 bg-[#070A12]/80 backdrop-blur-xl px-3 sm:px-6 flex items-center justify-between sticky top-0 z-40 select-none">
+      {/* Left: Hamburger (mobile) + Status Pill */}
+      <div className="flex items-center gap-2 sm:gap-4">
+        {onOpenMobileNav && (
+          <button
+            onClick={onOpenMobileNav}
+            className="lg:hidden p-2 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl transition-colors cursor-pointer"
+            title="Open Menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        )}
+
         <motion.div
           initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
-          className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs font-medium text-emerald-400 glow-emerald"
+          className="flex items-center gap-2 px-2.5 sm:px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-xs font-medium text-emerald-400 glow-emerald"
         >
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
           </span>
-          <span className="font-mono tracking-wider font-semibold text-[11px]">VAPT ENGINES ONLINE</span>
+          <span className="font-mono tracking-wider font-semibold text-[10px] sm:text-[11px] hidden sm:inline">
+            VAPT ENGINES ONLINE
+          </span>
+          <span className="font-mono tracking-wider font-semibold text-[10px] sm:hidden">
+            ONLINE
+          </span>
         </motion.div>
       </div>
 
       {/* Right: Actions, Notifications & Profile */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5 sm:gap-3">
+        {/* New Security Scan */}
         <Link to="/scans/new">
           <motion.button
             whileHover={{ scale: 1.04, boxShadow: "0 0 20px rgba(6, 182, 212, 0.4)" }}
             whileTap={{ scale: 0.96 }}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold tracking-wide shadow-md transition-all cursor-pointer"
+            className="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold tracking-wide shadow-md transition-all cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            New Security Scan
+            <span className="hidden sm:inline">New Security Scan</span>
+            <span className="sm:hidden">Scan</span>
           </motion.button>
         </Link>
+
+        {/* Change Password Quick Action */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowPasswordModal(true)}
+          title="Change Account Password"
+          className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 text-xs text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 rounded-xl transition-colors cursor-pointer border border-slate-800 hover:border-cyan-500/30"
+        >
+          <KeyRound className="h-3.5 w-3.5 text-cyan-400" />
+          <span className="hidden md:inline font-medium">Change Password</span>
+        </motion.button>
 
         {/* Notifications Popover */}
         <div className="relative">
@@ -73,11 +106,12 @@ export const TopNavbar: React.FC = () => {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl relative transition-colors cursor-pointer"
+            className="p-1.5 sm:p-2 text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-xl relative transition-colors cursor-pointer"
+            title="Notifications"
           >
             <Bell className="h-4 w-4" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-cyan-400 rounded-full animate-ping" />
+              <span className="absolute top-1 right-1 h-2 w-2 bg-cyan-400 rounded-full animate-ping" />
             )}
           </motion.button>
 
@@ -88,7 +122,7 @@ export const TopNavbar: React.FC = () => {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
-                className="absolute right-0 mt-2 w-80 bg-[#0C101B] border border-cyan-900/40 rounded-2xl shadow-2xl z-50 p-3.5 backdrop-blur-2xl"
+                className="absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-1.5rem)] bg-[#0C101B] border border-cyan-900/40 rounded-2xl shadow-2xl z-50 p-3 sm:p-3.5 backdrop-blur-2xl"
               >
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#1E293B]">
                   <span className="text-xs font-bold text-white uppercase tracking-wider font-mono">Alerts & Telemetry</span>
@@ -118,26 +152,16 @@ export const TopNavbar: React.FC = () => {
           </AnimatePresence>
         </div>
 
-        {/* Change Password Quick Action */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowPasswordModal(true)}
-          title="Change Account Password"
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 rounded-xl transition-colors cursor-pointer border border-slate-800 hover:border-cyan-500/30"
-        >
-          <KeyRound className="h-3.5 w-3.5 text-cyan-400" />
-          <span className="hidden md:inline font-medium">Change Password</span>
-        </motion.button>
-
+        {/* Security Profile Link */}
         <Link
           to="/profile"
-          className="flex items-center gap-2 pl-3 border-l border-[#1E293B] text-xs font-medium text-slate-300 hover:text-cyan-400 transition-colors"
+          className="flex items-center gap-1.5 sm:gap-2 pl-2 sm:pl-3 border-l border-[#1E293B] text-xs font-medium text-slate-300 hover:text-cyan-400 transition-colors"
+          title="Security Analyst Profile"
         >
-          <div className="h-7 w-7 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-bold">
+          <div className="h-7 w-7 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-bold shrink-0">
             <ShieldCheck className="h-4 w-4" />
           </div>
-          <span className="hidden sm:inline">Security Profile</span>
+          <span className="hidden sm:inline">Profile</span>
         </Link>
       </div>
 

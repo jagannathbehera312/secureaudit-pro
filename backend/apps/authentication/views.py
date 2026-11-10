@@ -194,22 +194,49 @@ class ProfileView(APIView):
 class ChangePasswordView(APIView):
     def post(self, request):
         user = request.user
+        if not user or not getattr(user, "is_authenticated", False):
+            return Response({"error": "Authentication required. Please log in."}, status=status.HTTP_401_UNAUTHORIZED)
+
         current_password = request.data.get("current_password", "")
         new_password = request.data.get("new_password", "")
+
+        if not current_password:
+            return Response({"error": "Current password is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not new_password:
+            return Response({"error": "New password is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         if len(new_password) < 8:
             return Response({"error": "New password must be at least 8 characters long."}, status=status.HTTP_400_BAD_REQUEST)
 
+        if current_password == new_password:
+            return Response({"error": "New password cannot be identical to your current password."}, status=status.HTTP_400_BAD_REQUEST)
+
         db = get_db()
-        user_doc = db[USERS].find_one({"_id": ObjectId(user.id)})
+        user_doc = None
+        user_id_val = getattr(user, "id", None) or getattr(user, "pk", None)
+        if user_id_val:
+            try:
+                user_doc = db[USERS].find_one({"_id": ObjectId(str(user_id_val))})
+            except Exception:
+                pass
+            if not user_doc:
+                user_doc = db[USERS].find_one({"_id": str(user_id_val)})
+
+        if not user_doc and getattr(user, "email", None):
+            user_doc = db[USERS].find_one({"email": user.email.strip().lower()})
+
+        if not user_doc:
+            return Response({"error": "User account not found in database."}, status=status.HTTP_404_NOT_FOUND)
+
         if not verify_password(current_password, user_doc.get("password_hash", "")):
-            return Response({"error": "Current password incorrect."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Current password is incorrect. Please verify and try again."}, status=status.HTTP_400_BAD_REQUEST)
 
         db[USERS].update_one(
-            {"_id": ObjectId(user.id)},
+            {"_id": user_doc["_id"]},
             {"$set": {"password_hash": hash_password(new_password)}}
         )
-        log_audit_event(user.id, "PASSWORD_CHANGED", {"email": user.email}, organization_id=user.organization_id)
+        log_audit_event(str(user_doc["_id"]), "PASSWORD_CHANGED", {"email": user.email}, organization_id=str(getattr(user, "organization_id", "")))
         return Response({"message": "Password changed successfully."})
 
 

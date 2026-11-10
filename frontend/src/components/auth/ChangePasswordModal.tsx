@@ -9,6 +9,7 @@ import {
   AlertCircle,
   X,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 import { authApi } from "../../services/api";
 
@@ -69,18 +70,34 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
     setError(null);
     setSuccess(null);
 
+    // Client-side validations
+    if (!currentPassword) {
+      setError("Please enter your current account password.");
+      return;
+    }
+
+    if (!newPassword) {
+      setError("Please enter your new password.");
+      return;
+    }
+
     if (newPassword.length < 8) {
       setError("New password must be at least 8 characters long.");
       return;
     }
 
+    if (!confirmPassword) {
+      setError("Please confirm your new password.");
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
-      setError("New password and confirmation do not match.");
+      setError("New password and confirm password do not match.");
       return;
     }
 
     if (currentPassword === newPassword) {
-      setError("New password cannot be identical to the current password.");
+      setError("New password cannot be identical to your current password.");
       return;
     }
 
@@ -90,17 +107,19 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         current_password: currentPassword,
         new_password: newPassword,
       });
-      setSuccess(res.data.message || "Password changed successfully.");
+      setSuccess(res.data.message || "Password changed successfully!");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       setTimeout(() => {
         handleClose();
-      }, 2000);
+      }, 1800);
     } catch (err: any) {
-      setError(
-        err.response?.data?.error || "Failed to change password. Please check your current password."
-      );
+      const apiErr =
+        err.response?.data?.error ||
+        err.response?.data?.message ||
+        "Failed to change password. Please check your current password.";
+      setError(apiErr);
     } finally {
       setLoading(false);
     }
@@ -110,83 +129,58 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md overflow-y-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ duration: 0.2 }}
-          className="relative w-full max-w-md bg-[#0C101B] border border-cyan-500/30 rounded-2xl shadow-2xl p-6 overflow-hidden glow-cyan"
+          className="relative w-full max-w-md max-h-[92vh] overflow-y-auto bg-[#0C101B] border border-cyan-500/30 rounded-2xl shadow-2xl p-5 sm:p-6 glow-cyan my-auto"
         >
           {/* Header */}
-          <div className="flex items-center justify-between pb-4 border-b border-[#1E293B]">
+          <div className="flex items-center justify-between pb-3.5 border-b border-[#1E293B]">
             <div className="flex items-center gap-2.5">
-              <div className="h-9 w-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+              <div className="h-9 w-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
                 <KeyRound className="h-5 w-5" />
               </div>
               <div>
                 <h3 className="text-base font-bold text-white tracking-wide">
                   Change Password
                 </h3>
-                <p className="text-[11px] text-slate-400 font-mono">
+                <p className="text-[10px] text-slate-400 font-mono">
                   SECURITY POLICY COMPLIANCE
                 </p>
               </div>
             </div>
             <button
               onClick={handleClose}
-              className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+              className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition-colors"
+              title="Close"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
-          {/* Feedback Banners */}
-          <div className="mt-4">
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 mb-4 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2 text-xs text-red-400"
-              >
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>{error}</span>
-              </motion.div>
-            )}
-
-            {success && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="p-3 mb-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2 text-xs text-emerald-400"
-              >
-                <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-                <span>{success}</span>
-              </motion.div>
-            )}
-          </div>
-
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 mt-4">
             {/* Current Password */}
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">
                 CURRENT PASSWORD
               </label>
               <div className="relative">
-                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
                 <input
                   type={showCurrent ? "text" : "password"}
-                  required
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl pl-9 pr-10 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl pl-9 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
                   placeholder="Enter current password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowCurrent(!showCurrent)}
-                  className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300"
+                  className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 p-0.5"
                 >
                   {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -206,19 +200,18 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 )}
               </div>
               <div className="relative">
-                <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                <KeyRound className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
                 <input
                   type={showNew ? "text" : "password"}
-                  required
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl pl-9 pr-10 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
+                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl pl-9 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
                   placeholder="Minimum 8 characters"
                 />
                 <button
                   type="button"
                   onClick={() => setShowNew(!showNew)}
-                  className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300"
+                  className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 p-0.5"
                 >
                   {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -233,7 +226,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                       style={{ width: `${(strength.score / 5) * 100}%` }}
                     />
                   </div>
-                  <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[10px] text-slate-400 font-mono">
                     <span className={newPassword.length >= 8 ? "text-emerald-400" : "text-slate-500"}>
                       ✓ 8+ chars
                     </span>
@@ -257,13 +250,12 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 CONFIRM NEW PASSWORD
               </label>
               <div className="relative">
-                <ShieldCheck className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
                 <input
                   type={showConfirm ? "text" : "password"}
-                  required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={`w-full bg-[#0B0F19] border rounded-xl pl-9 pr-10 py-2 text-sm text-white focus:outline-none transition-colors ${
+                  className={`w-full bg-[#0B0F19] border rounded-xl pl-9 pr-10 py-2.5 text-sm text-white focus:outline-none transition-colors ${
                     confirmPassword && confirmPassword !== newPassword
                       ? "border-red-500 focus:border-red-500"
                       : "border-[#1E293B] focus:border-cyan-500"
@@ -273,7 +265,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300"
+                  className="absolute right-3 top-3 text-slate-500 hover:text-slate-300 p-0.5"
                 >
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -288,21 +280,55 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
               )}
             </div>
 
+            {/* In-view feedback messages right above actions */}
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2 text-xs text-red-400"
+                >
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+
+              {success && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-start gap-2 text-xs text-emerald-400"
+                >
+                  <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>{success}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Actions */}
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1E293B]">
               <button
                 type="button"
                 onClick={handleClose}
-                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                className="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                disabled={loading || (confirmPassword !== "" && confirmPassword !== newPassword)}
-                className="px-5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md disabled:opacity-50"
+                disabled={loading}
+                className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer"
               >
-                {loading ? "Updating..." : "Update Password"}
+                {loading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Updating Password...</span>
+                  </>
+                ) : (
+                  <span>Update Password</span>
+                )}
               </button>
             </div>
           </form>

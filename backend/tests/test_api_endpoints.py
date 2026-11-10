@@ -102,6 +102,30 @@ def test_auth_register_and_login_flow(api_client):
         profile_res = api_client.get("/api/auth/profile/")
         assert profile_res.status_code == status.HTTP_200_OK
         assert profile_res.data["email"] == unique_email
+
+        # 5. Test Change Password Flow
+        # a. Attempt with wrong current password
+        bad_change = api_client.post("/api/auth/change-password/", data={
+            "current_password": "IncorrectPassword123!",
+            "new_password": "BrandNewSecurePass2026!"
+        }, format="json")
+        assert bad_change.status_code == status.HTTP_400_BAD_REQUEST
+
+        # b. Attempt with valid current password
+        good_change = api_client.post("/api/auth/change-password/", data={
+            "current_password": "PipelineSecurePass123!",
+            "new_password": "BrandNewSecurePass2026!"
+        }, format="json")
+        assert good_change.status_code == status.HTTP_200_OK
+        assert "message" in good_change.data
+
+        # c. Verify login with the newly updated password succeeds
+        api_client.credentials() # clear headers
+        new_login = api_client.post("/api/auth/login/", data={
+            "email": unique_email,
+            "password": "BrandNewSecurePass2026!"
+        }, format="json")
+        assert new_login.status_code == status.HTTP_200_OK
     finally:
         # Automatically clean up / delete test email ID and test organization from database
         db[USERS].delete_one({"email": unique_email})
