@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Bell, Search, ShieldCheck, Plus, Check } from "lucide-react";
+import { Bell, Search, ShieldCheck, Plus, Check, KeyRound } from "lucide-react";
 import { notificationsApi } from "../../services/api";
+import { ChangePasswordModal } from "../auth/ChangePasswordModal";
 
 export const TopNavbar: React.FC = () => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
 
   useEffect(() => {
     const fetchNotifs = async () => {
@@ -116,6 +118,18 @@ export const TopNavbar: React.FC = () => {
           </AnimatePresence>
         </div>
 
+        {/* Change Password Quick Action */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowPasswordModal(true)}
+          title="Change Account Password"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 rounded-xl transition-colors cursor-pointer border border-slate-800 hover:border-cyan-500/30"
+        >
+          <KeyRound className="h-3.5 w-3.5 text-cyan-400" />
+          <span className="hidden md:inline font-medium">Change Password</span>
+        </motion.button>
+
         <Link
           to="/profile"
           className="flex items-center gap-2 pl-3 border-l border-[#1E293B] text-xs font-medium text-slate-300 hover:text-cyan-400 transition-colors"
@@ -123,9 +137,15 @@ export const TopNavbar: React.FC = () => {
           <div className="h-7 w-7 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs font-bold">
             <ShieldCheck className="h-4 w-4" />
           </div>
-          <span>Security Profile</span>
+          <span className="hidden sm:inline">Security Profile</span>
         </Link>
       </div>
+
+      {/* Global Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+      />
     </header>
   );
 };

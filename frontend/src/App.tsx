@@ -5,6 +5,7 @@ import { DashboardLayout } from "./components/layout/DashboardLayout";
 
 import { LandingPage } from "./pages/LandingPage";
 import { LoginPage } from "./pages/LoginPage";
+import { SignupPage } from "./pages/SignupPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { WebsitesPage } from "./pages/WebsitesPage";
 import { NewScanPage } from "./pages/NewScanPage";
@@ -46,6 +47,8 @@ export const App: React.FC = () => {
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/register" element={<SignupPage />} />
 
           {/* Authenticated Dashboard Routes */}
           <Route

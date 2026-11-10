@@ -68,10 +68,10 @@ export const LandingPage: React.FC = () => {
             </Link>
             <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
               <Link
-                to="/login"
+                to="/signup"
                 className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold tracking-wide shadow-lg shadow-cyan-900/30 transition-all flex items-center gap-2 glow-cyan"
               >
-                Access Demo Platform <ArrowRight className="h-3.5 w-3.5" />
+                Sign Up / Register <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </motion.div>
           </div>

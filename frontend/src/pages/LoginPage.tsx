@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShieldAlert, Lock, Mail, KeyRound, ArrowRight, AlertCircle } from "lucide-react";
+import { ShieldAlert, Lock, Mail, KeyRound, ArrowRight, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 
 export const LoginPage: React.FC = () => {
@@ -10,6 +10,7 @@ export const LoginPage: React.FC = () => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [totpCode, setTotpCode] = useState("");
   const [showTotpPrompt, setShowTotpPrompt] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,17 +98,26 @@ export const LoginPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5 font-mono">ACCOUNT PASSWORD</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-slate-300 font-mono">ACCOUNT PASSWORD</label>
+              </div>
               <div className="relative">
                 <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-slate-500" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl pl-10 pr-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
+                  className="w-full bg-[#0B0F19] border border-[#1E293B] rounded-xl pl-10 pr-10 py-2 text-sm text-white focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-colors"
                   placeholder="••••••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
@@ -141,7 +151,7 @@ export const LoginPage: React.FC = () => {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-2.5 px-4 bg-gradient-to-r from-cyan-600 via-teal-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-900/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 glow-cyan"
+              className="w-full mt-2 py-2.5 px-4 bg-gradient-to-r from-cyan-600 via-teal-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-cyan-900/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50 glow-cyan cursor-pointer"
             >
               {loading ? (
                 <>
@@ -156,6 +166,17 @@ export const LoginPage: React.FC = () => {
               )}
             </motion.button>
           </form>
+
+          {/* Links to Signup */}
+          <div className="mt-6 pt-5 border-t border-[#1E293B] flex items-center justify-between text-xs text-slate-400 font-mono">
+            <span>Don't have an account?</span>
+            <Link
+              to="/signup"
+              className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 transition-colors"
+            >
+              Create Account <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
         </div>
       </motion.div>
     </div>
