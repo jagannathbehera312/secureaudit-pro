@@ -2,166 +2,161 @@ pipeline {
     agent any
 
     options {
-        timeout(time: 25, unit: 'MINUTES')
-        buildDiscarder(logRotator(numToKeepStr: '20'))
         disableConcurrentBuilds()
-        ansiColor('xterm')
-    }
-
-    triggers {
-        // Automatically triggers this pipeline when a GitHub Webhook push event is received
-        githubPush()
+        timestamps()
     }
 
     environment {
-        PYTHONUNBUFFERED = '1'
-        DJANGO_SETTINGS_MODULE = 'config.settings'
-        USE_MOCK_DB = 'true'
-        NODE_ENV = 'test'
+        COMPOSE_PROJECT_NAME = 'secureaudit'
+        ENV_FILE = '/opt/secureaudit/.env'
+        COMPOSE_FILE = 'docker-compose.yml'
+    }
+
+    triggers {
+        githubPush()
     }
 
     stages {
-        stage('Checkout & SCM Info') {
+        stage('1. Pull Code from GitHub') {
             steps {
-                echo "=========================================================="
-                echo " SecureAudit Pro CI/CD Pipeline - Commit Verification "
-                echo "=========================================================="
-                echo "Branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'main'}"
-                echo "Commit: ${env.GIT_COMMIT ?: 'Head'}"
+                echo '[+] Pulling latest source code...'
                 checkout scm
             }
         }
 
-        stage('Backend Dependencies & Linting') {
+        stage('2. Backend Unit & API Tests') {
             steps {
-                echo "[+] Initializing Python virtual environment & dependencies..."
-                script {
-                    if (isUnix()) {
-                        sh '''
-                            python3 -m venv venv
-                            . venv/bin/activate
-                            pip install --upgrade pip
-                            pip install -r requirements.txt
-                            flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics || true
-                        '''
-                    } else {
-                        bat '''
-                            python -m venv venv
-                            call venv\\Scripts\\activate
-                            python -m pip install --upgrade pip
-                            pip install -r requirements.txt
-                            flake8 backend --count --select=E9,F63,F7,F82 --show-source --statistics || echo Lint warnings flagged
-                        '''
-                    }
+                echo '[+] Installing dependencies and running tests...'
+
+                sh '''
+                    . .venv/bin/activate
+                    python -m pip install --upgrade pip
+                    pip install -r requirements.txt
+                    mkdir -p backend/test-reports
+                    
+                    # Load environment variables from /opt/secureaudit/.env for pytest-django
+                    if [ -f /opt/secureaudit/.env ]; then
+                        export $(grep -v '^#' /opt/secureaudit/.env | xargs)
+                    fi
+                    
+                    pytest backend/tests/ -v --junitxml=backend/test-reports/junit.xml --cov=backend/apps --cov=backend/core --cov-report=term
+                '''
+            }
+
+            post {
+                always {
+                    junit allowEmptyResults: true,
+                          testResults: 'backend/test-reports/junit.xml'
                 }
             }
         }
 
-        stage('Backend Unit & REST API Tests') {
+        stage('3. Validate Docker Compose') {
             steps {
-                echo "[+] Executing Django Unit & API Integration Test Suite..."
-                script {
-                    if (isUnix()) {
-                        sh '''
-                            . venv/bin/activate
-                            cd backend
-                            mkdir -p test-reports
-                            pytest tests/ -v \
-                                --junitxml=test-reports/junit.xml \
-                                --cov=apps --cov=core \
-                                --cov-report=xml:test-reports/coverage.xml \
-                                --cov-report=term
-                        '''
-                    } else {
-                        bat '''
-                            call venv\\Scripts\\activate
-                            cd backend
-                            if not exist test-reports mkdir test-reports
-                            pytest tests/ -v ^
-                                --junitxml=test-reports/junit.xml ^
-                                --cov=apps --cov=core ^
-                                --cov-report=xml:test-reports/coverage.xml ^
-                                --cov-report=term
-                        '''
-                    }
-                }
+                echo '[+] Validating Docker Compose configuration...'
+
+                sh '''
+                    set -e
+                    docker compose \
+                        --project-name ${COMPOSE_PROJECT_NAME} \
+                        --env-file ${ENV_FILE} \
+                        -f ${COMPOSE_FILE} \
+                        config --quiet
+                '''
             }
         }
 
-        stage('Frontend Build & Verification') {
+        stage('4. Docker Compose Build') {
             steps {
-                echo "[+] Verifying Frontend TypeScript Compilation & Production Build..."
-                script {
-                    if (isUnix()) {
-                        sh '''
-                            cd frontend
-                            npm ci --prefer-offline || npm install
-                            npm run build
-                        '''
-                    } else {
-                        bat '''
-                            cd frontend
-                            npm ci || npm install
-                            npm run build
-                        '''
-                    }
-                }
+                echo '[+] Building SecureAudit Docker images...'
+
+                sh '''
+                    set -e
+                    docker compose \
+                        --project-name ${COMPOSE_PROJECT_NAME} \
+                        --env-file ${ENV_FILE} \
+                        -f ${COMPOSE_FILE} \
+                        build
+                '''
             }
         }
 
-        stage('Security & SAST Verification') {
+        stage('5. Deploy SecureAudit') {
             steps {
-                echo "[+] Checking for hardcoded secrets & SSRF boundary invariants..."
-                script {
-                    if (isUnix()) {
-                        sh '''
-                            . venv/bin/activate
-                            pip install bandit || true
-                            bandit -r backend/core backend/security_engine -lll || true
-                        '''
-                    } else {
-                        bat '''
-                            call venv\\Scripts\\activate
-                            pip install bandit || echo Bandit optional
-                            bandit -r backend/core backend/security_engine -lll || echo SAST scan completed
-                        '''
-                    }
-                }
+                echo '[+] Deploying updated SecureAudit services...'
+
+                sh '''
+                    set -e
+                    docker compose \
+                        --project-name ${COMPOSE_PROJECT_NAME} \
+                        --env-file ${ENV_FILE} \
+                        -f ${COMPOSE_FILE} \
+                        up -d
+                '''
+            }
+        }
+
+        stage('6. Backend Health Check') {
+            steps {
+                echo '[+] Checking Django backend...'
+
+                sh '''
+                    set -e
+                    docker compose \
+                        --project-name ${COMPOSE_PROJECT_NAME} \
+                        --env-file ${ENV_FILE} \
+                        -f ${COMPOSE_FILE} \
+                        exec -T backend python manage.py check
+                '''
+            }
+        }
+
+        stage('7. Frontend Smoke Test') {
+            steps {
+                echo '[+] Checking SecureAudit frontend on port 8081...'
+
+                sh '''
+                    set -e
+                    curl --retry 12 \
+                         --retry-delay 5 \
+                         --retry-connrefused \
+                         --fail \
+                         --silent \
+                         --show-error \
+                         http://localhost:8081/
+                '''
             }
         }
     }
 
     post {
         always {
-            echo "[+] Archiving Test Results & Telemetry Metrics..."
-            // Publish JUnit XML test results into Jenkins UI
-            junit testResults: 'backend/test-reports/junit.xml', allowEmptyResults: true
-
-            // Publish Cobertura code coverage report into Jenkins UI
-            step([
-                $class: 'CoberturaPublisher',
-                coberturaReportFile: 'backend/test-reports/coverage.xml',
-                failUnhealthy: false,
-                failUnstable: false,
-                autoUpdateHealth: false,
-                autoUpdateStability: false
-            ])
-
-            // Archive reports as downloadable build artifacts
-            archiveArtifacts artifacts: 'backend/test-reports/**', allowEmptyArchive: true
+            echo '[+] Pipeline execution completed.'
         }
+
         success {
-            echo "=========================================================="
-            echo " [SUCCESS] SecureAudit Pro build & test verification passed! "
-            echo "=========================================================="
+            echo '''
+            ==========================================
+             SECUREAUDIT CI/CD PIPELINE SUCCESSFUL
+            ==========================================
+            '''
         }
+
         failure {
-            echo "=========================================================="
-            echo " [FAILED] Pipeline failed verification. Check test logs. "
-            echo "=========================================================="
-        }
-        cleanup {
-            echo "[+] Cleaning temporary build workspace..."
+            echo '''
+            ==========================================
+             SECUREAUDIT CI/CD PIPELINE FAILED
+             Check the failed stage and console logs.
+            ==========================================
+            '''
+
+            sh '''
+                docker compose \
+                    --project-name ${COMPOSE_PROJECT_NAME} \
+                    --env-file ${ENV_FILE} \
+                    -f ${COMPOSE_FILE} \
+                    logs --tail 50 || true
+            '''
         }
     }
 }
