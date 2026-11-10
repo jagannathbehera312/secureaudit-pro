@@ -1,0 +1,129 @@
+version: "3.8"
+
+services:
+  # 1. Reverse Proxy & Frontend Service
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend.Dockerfile
+    container_name: secureaudit-frontend
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+    networks:
+      - secureaudit-net
+
+  # 2. Django REST API Backend
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: secureaudit-backend
+    restart: unless-stopped
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-prod-secret-replace-in-env-file-98327498273}
+      - DEBUG=False
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-secureaudit_user}:${MONGO_INITDB_ROOT_PASSWORD:-AuditPass2026!}@mongodb:27017/secureaudit_pro?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - ZAP_API_URL=http://owasp-zap:8080
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - secureaudit-net
+
+  # 3. Celery Distributed Task Worker
+  celery-worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: secureaudit-celery-worker
+    command: celery -A config worker --loglevel=info --concurrency=4
+    restart: unless-stopped
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-prod-secret-replace-in-env-file-98327498273}
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-secureaudit_user}:${MONGO_INITDB_ROOT_PASSWORD:-AuditPass2026!}@mongodb:27017/secureaudit_pro?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+      - ZAP_API_URL=http://owasp-zap:8080
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - secureaudit-net
+
+  # 4. Celery Beat Periodic Scheduler
+  celery-beat:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    container_name: secureaudit-celery-beat
+    command: celery -A config beat --loglevel=info
+    restart: unless-stopped
+    environment:
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY:-prod-secret-replace-in-env-file-98327498273}
+      - MONGODB_URI=mongodb://${MONGO_INITDB_ROOT_USERNAME:-secureaudit_user}:${MONGO_INITDB_ROOT_PASSWORD:-AuditPass2026!}@mongodb:27017/secureaudit_pro?authSource=admin
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - secureaudit-net
+
+  # 5. MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: secureaudit-mongodb
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_INITDB_ROOT_USERNAME:-secureaudit_user}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_INITDB_ROOT_PASSWORD:-AuditPass2026!}
+      - MONGO_INITDB_DATABASE=secureaudit_pro
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - secureaudit-net
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 6. Redis Broker & Cache
+  redis:
+    image: redis:7-alpine
+    container_name: secureaudit-redis
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    networks:
+      - secureaudit-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 7. OWASP ZAP Automation Daemon
+  owasp-zap:
+    image: zaproxy/zap-stable:latest
+    container_name: secureaudit-zap
+    restart: unless-stopped
+    command: zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true
+    networks:
+      - secureaudit-net
+
+networks:
+  secureaudit-net:
+    driver: bridge
+
+volumes:
+  mongo-data:
+  redis-data:

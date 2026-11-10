@@ -5,15 +5,20 @@ Django settings for SecureAudit Pro project.
 import os
 import sys
 from pathlib import Path
-
+from django.core.exceptions import ImproperlyConfigured
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Add backend directory and apps directory to sys.path
 sys.path.insert(0, str(BASE_DIR))
 sys.path.insert(0, str(BASE_DIR / "apps"))
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "secureaudit-pro-production-secret-key-398471203487120")
-DEBUG = os.environ.get("DEBUG", "True").lower() in ("true", "1", "yes")
+
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set")
+
+DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
+
 
 ALLOWED_HOSTS = ["*"]
 
