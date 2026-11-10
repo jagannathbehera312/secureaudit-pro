@@ -64,9 +64,26 @@ class MongoDBManager:
         if not use_mock:
             try:
                 import pymongo
+
+                # Construct authenticated URI if credentials exist and URI is unauthenticated
+                user = os.environ.get("MONGO_INITDB_ROOT_USERNAME") or os.environ.get("MONGODB_USER")
+                pwd = os.environ.get("MONGO_INITDB_ROOT_PASSWORD") or os.environ.get("MONGODB_PASSWORD")
+                if user and pwd and "@" not in mongo_uri:
+                    prefix = "mongodb://"
+                    if mongo_uri.startswith(prefix):
+                        rest = mongo_uri[len(prefix):]
+                        mongo_uri = f"{prefix}{user}:{pwd}@{rest}"
+                        if "?" not in mongo_uri:
+                            mongo_uri += "?authSource=admin"
+
                 # Try connecting with a short timeout to verify live connectivity
                 client = pymongo.MongoClient(mongo_uri, serverSelectionTimeoutMS=1500)
                 client.server_info()  # Will trigger exception if not reachable
+
+                # Verify actual database authorization (will fail if auth required and missing/wrong)
+                client[db_name].command("ping")
+                client[db_name][USERS].find_one()
+
                 self._client = client
                 self._db = client[db_name]
                 self._is_mock = False

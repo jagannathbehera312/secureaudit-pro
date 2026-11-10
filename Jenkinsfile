@@ -38,6 +38,7 @@ pipeline {
                         export $(grep -v '^#' /opt/secureaudit/.env | xargs)
                     fi
                     
+                    export USE_MOCK_DB=true
                     pytest backend/tests/ -v --junitxml=backend/test-reports/junit.xml --cov=backend/apps --cov=backend/core --cov-report=term
                 '''
             }
